@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "nodemon index.mjs",
     "start": "node index.mjs",
+    "init": "npm run init:clone && npm run init:install",
+    "init:clone": "git clone https://github.com/chan1sook/jbc-deposit-cli.git",
+    "init:install": "pip3 install -r requirements.txt && python3 setup.py install",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

@@ -30,4 +30,5 @@ pnpm-lock.yaml
 yarn.lock
 
 # dev temp file
+jbc-deposit-cli/
 .temp/
