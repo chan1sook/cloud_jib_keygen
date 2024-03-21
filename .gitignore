@@ -32,3 +32,4 @@ yarn.lock
 # dev temp file
 jbc-deposit-cli/
 .temp/
+.env
