@@ -8,16 +8,22 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.post("/generate-keys", express.json(), express.urlencoded({ extended: true }), async (req, res, next) => {
-  try {
-    const archive = generateJbcKeysStream(req.body.qty, req.body.withdrawAddress, req.body.keyPassword);
+app.post("/generate-keys",
+  express.json(), express.urlencoded({ extended: true }),
+  async (req, res, next) => {
+    const archive = generateJbcKeysStream(
+      parseInt(req.body.qty, 10),
+      req.body.withdrawAddress,
+      req.body.keyPassword,
+    (err) => {
+      console.error(err);
+      res.status(500).json({
+        status: "Error",
+        message: err.message
+      })
+    });
     res.status(200).attachment("zip.zip");
     archive.pipe(res);
-    
-  } catch(err) {
-    console.error(err);
-    next(err);
-  }
 });
 
 app.get("/", (req, res) => {

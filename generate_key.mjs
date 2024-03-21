@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { spawn } from "child_process";
+import { isAddress } from "web3-validator";
 
 import archiver from 'archiver';
 
@@ -34,7 +35,7 @@ function logProcess(name = "") {
   }
 }
 
-export function generateJbcKeysStream(qty = 1, withdrawAddress = "", keyPassword = "") {
+export function generateJbcKeysStream(qty = 1, withdrawAddress = "", keyPassword = "", onResError = (err) => {}) {
   const sessionId = sessionGen();
   const keyPath = path.join(JBC_KEYGEN_TEMP_PATH, sessionId);
   const archive = archiver('zip', {
@@ -53,6 +54,18 @@ export function generateJbcKeysStream(qty = 1, withdrawAddress = "", keyPassword
   }
 
   const generateKeys = async () => {
+    if(!Number.isInteger(qty) || qty < 1) {
+      throw new Error("Qty Not Valid");
+    }
+
+    if(withdrawAddress && (!isAddress(withdrawAddress) || withdrawAddress === "0x0000000000000000000000000000000000000000")) {
+      throw new Error("Address Not Valid");
+    }
+
+    if(keyPassword.length < 8) {
+      throw new Error("Key Password Length Too Short (length >= 8)");
+    }
+
     const vcPath = path.join(keyPath, "validator_keys");
 
     await fs.mkdir(vcPath, { recursive: true });
@@ -78,16 +91,23 @@ export function generateJbcKeysStream(qty = 1, withdrawAddress = "", keyPassword
       }
     }, 100);
 
-    const genKeyProcess = spawn("./deposit.sh", [
+    const genKeyArgs = [
       "--non_interactive",
       "new-mnemonic",
       `--num_validators=${qty}`,
       "--mnemonic_language=english",
       "--chain=jib",
-      `--eth1_withdrawal_address=${withdrawAddress}`,
       `--keystore_password=${keyPassword}`,
       `--folder=${keyPath}`,
-    ], {
+    ];
+
+    if(isAddress(withdrawAddress)) {
+      genKeyArgs.push(
+        `--eth1_withdrawal_address=${withdrawAddress}`
+      )
+    }
+
+    const genKeyProcess = spawn("./deposit.sh", genKeyArgs, {
       cwd: JBC_KEYGEN_EXEC_PATH,
       timeout: 60 * 60 * 1000,
     });
@@ -128,6 +148,7 @@ export function generateJbcKeysStream(qty = 1, withdrawAddress = "", keyPassword
         finished = true;
         logProcess("End");
       } else {
+        logTitle("Error", out, code);
         const tokens = out.split('\n').filter((str) => !!str);
         const err = new Error(tokens[tokens.length - 1] || `Exit code:${code}`);
         clearInterval(watchFile);
@@ -136,30 +157,30 @@ export function generateJbcKeysStream(qty = 1, withdrawAddress = "", keyPassword
     })
   }
 
- 
-  // good practice to catch warnings (ie stat failures and other non-blocking errors)
+   // good practice to catch warnings (ie stat failures and other non-blocking errors)
   archive.on('warning', function(err) {
     if (err.code === 'ENOENT') {
       // log warning
     } else {
-      // throw error
       delFolders();
-      throw err;
+      archive.abort();
+      onResError(err);
     }
   });
 
-  archive.on('error', function(err) {
+  archive.on('error', (err) => {
     delFolders();
-    throw err;
+    onResError(err);
   });
 
-  archive.on('finish', function(err) {
+  archive.on('finish', () => {
     delFolders();
   });
 
   generateKeys().catch((err) => {
     delFolders();
-    throw err;
+    archive.abort();
+    onResError(err);
   });
 
   return archive;
