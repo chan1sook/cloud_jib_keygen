@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import express from "express";
+import cors from "cors";
 import { generateJbcKeysStream } from "./generate_key.mjs";
 
 dotenv.config();
@@ -8,6 +9,7 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(cors());
 app.post("/generate-keys",
   express.json(), express.urlencoded({ extended: true }),
   async (req, res, next) => {
